@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Космо-Кот — звёздный кликер</title>
+<meta name="description" content="Тапай космического кота, собирай звёзды и прокачивай мурчащую империю!">
+<script src="/sdk.js"></script>
+<style>
+:root{
+  --bg:#150d2e; --panel:#241744; --panel2:#2c1e57; --line:#4b3a80; --line2:#7a63c8;
+  --ink:#fff7ea; --dim:#c9b8f0; --gold:#ffc857; --coral:#ff8c5a; --teal:#3ddad7; --pink:#ff6f91;
+  --display:'Arial Black','Segoe UI Black',Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;
+  font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);
+  touch-action:manipulation;user-select:none;-webkit-user-select:none}
+button{font-family:inherit;color:inherit}
+
+#sky{position:absolute;inset:0;z-index:0}
+.nebula{position:absolute;z-index:0;border-radius:50%;filter:blur(70px);pointer-events:none;animation:drift 26s ease-in-out infinite alternate}
+.n1{width:55vmax;height:55vmax;left:-15vmax;top:-20vmax;background:radial-gradient(circle at 40% 40%,#6b2fd688,transparent 62%)}
+.n2{width:48vmax;height:48vmax;right:-12vmax;bottom:-18vmax;background:radial-gradient(circle at 60% 60%,#ff5e7e30,#2f9dd833 55%,transparent 75%)}
+@keyframes drift{to{transform:translate(4%,3%) scale(1.08)}}
+#planet{position:absolute;z-index:0;width:26vmin;height:26vmin;left:-7vmin;bottom:-9vmin;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 32% 30%,#ffd98a,#f08c4b 45%,#8a3d5e 78%,#3a1c4e);
+  box-shadow:0 0 60px #f08c4b44,inset -18px -14px 40px #00000066;opacity:.9}
+#planet::after{content:'';position:absolute;inset:-8% -22%;border-radius:50%;border:2.4vmin solid #ffc85730;transform:rotate(-18deg) scaleY(.35)}
+
+#app{position:relative;z-index:2;height:100%;display:flex;flex-direction:column}
+#hud{display:flex;align-items:center;gap:clamp(10px,2vw,22px);padding:10px clamp(12px,2vw,22px)}
+#brand{display:flex;flex-direction:column;line-height:1.05}
+#tName{font-family:var(--display);font-weight:900;font-size:clamp(16px,2vw,21px);color:var(--coral);letter-spacing:.5px;text-shadow:0 2px 12px #ff8c5a55}
+#tSub{font-size:11px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+#balanceBox{flex:1;text-align:center;min-width:0}
+#balance{font-family:var(--display);font-weight:900;font-size:clamp(22px,3.4vw,34px);color:var(--gold);text-shadow:0 2px 16px #ffc85755;white-space:nowrap}
+#balance i{font-style:normal;font-size:.8em}
+#rateLine{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.chip{font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--teal);color:var(--teal);background:#3ddad714}
+.chip.hot{border-color:var(--gold);color:var(--gold);background:#ffc85714}
+#hudBtns{display:flex;gap:8px}
+.iconBtn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:#241744cc;cursor:pointer;font-size:16px;font-weight:700;color:var(--dim);transition:.2s}
+.iconBtn:hover{border-color:var(--line2);color:var(--ink);transform:translateY(-1px)}
+
+#layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(230px,290px) minmax(0,1fr) minmax(290px,360px);
+  gap:14px;padding:4px clamp(12px,2vw,22px) calc(14px + env(safe-area-inset-bottom));width:100%;max-width:1720px;margin:0 auto}
+.panel{background:linear-gradient(180deg,#251847f2,#1e1340f2);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 10px 30px #00000059;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#leftSlot{padding:14px;overflow:auto}
+.pTitle{font-family:var(--display);font-size:13px;font-weight:700;color:var(--coral);letter-spacing:1px;text-transform:uppercase;margin:4px 0 10px}
+.pTitle:not(:first-child){margin-top:18px}
+.statList{list-style:none}
+.statList li{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;border-bottom:1px dashed #4b3a8066;font-size:13px;color:var(--dim)}
+.statList b{font-family:var(--display);font-size:13px;color:var(--ink)}
+
+#stage{min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative}
+#clickZone{position:relative;flex:1;width:100%;min-height:0;display:flex;align-items:center;justify-content:center}
+#ring{position:absolute;width:min(56vmin,440px);height:min(56vmin,440px);border-radius:50%;
+  background:conic-gradient(from 0deg,#ffc85722,#3ddad722,#ff6f9122,#ffc85722);animation:spin 14s linear infinite;filter:blur(2px)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#catBtn{position:relative;width:min(44vmin,340px);height:min(44vmin,340px);background:none;border:0;cursor:pointer;
+  animation:bob 4s ease-in-out infinite;outline-offset:6px}
+@keyframes bob{50%{transform:translateY(-9px)}}
+#catBtn svg{width:100%;height:100%;display:block;filter:drop-shadow(0 16px 30px #00000070)}
+#catBtn.boing svg{animation:boing .2s cubic-bezier(.34,1.56,.64,1)}
+@keyframes boing{0%{transform:scale(1)}35%{transform:scale(.9,.86)}100%{transform:scale(1)}}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.4s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.fl{position:absolute;transform:translate(-50%,-50%);font-family:var(--display);font-weight:700;font-size:clamp(15px,2.4vmin,22px);
+  color:var(--gold);text-shadow:0 2px 8px #000;animation:rise .9s ease-out forwards}
+@keyframes rise{to{transform:translate(-50%,-160%) scale(1.15);opacity:0}}
+.pt{position:absolute;font-style:normal;font-size:14px;animation:fly .7s ease-out forwards}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+#adBtn,#adWatch{display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;border:2px solid var(--gold);
+  background:#ffc8571a;color:var(--gold);font-weight:700;font-size:clamp(13px,1.6vw,15px);cursor:pointer;transition:.2s}
+#adBtn:hover,#adWatch:hover{background:#ffc85730;transform:translateY(-2px)}
+.play{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#3a2300;
+  font-size:11px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{transform:scale(1.18);box-shadow:0 0 0 7px #ffc85722}}
+#cpcLine{font-family:var(--display);font-size:clamp(12px,1.6vw,15px);color:var(--teal)}
+
+#tabs{display:flex;gap:6px;padding:10px 10px 0}
+.tab{flex:1;padding:9px 4px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--dim);
+  font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.tab.on{background:#3a2a6d;color:#fff;border-color:#5a48a0}
+#panes{flex:1;min-height:0;overflow:auto;padding:10px;-webkit-overflow-scrolling:touch}
+.pane{display:none}.pane.on{display:block}
+.item{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;padding:10px;
+  margin:0 0 8px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;cursor:pointer;
+  transition:transform .12s,border-color .12s}
+.item:hover{transform:translateY(-2px);border-color:var(--line2)}
+.item:active{transform:scale(.98)}
+.item.dis{opacity:.55;filter:saturate(.55)}
+.item.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.i-ico{font-size:26px;width:44px;height:44px;display:grid;place-items:center;background:#1c1240;border-radius:10px}
+.i-name{font-weight:700;font-size:14px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.i-lvl{font-weight:600;font-size:11px;color:var(--teal)}
+.i-desc{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.i-price{font-family:var(--display);font-weight:700;font-size:13px;color:var(--gold);white-space:nowrap}
+.bonusCard{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+.bonusCard b{font-family:var(--display);font-size:15px}
+.bonusCard p{font-size:13px;color:var(--dim);margin:8px 0 12px}
+.b-ico{font-size:34px}
+.dim{font-size:12px;color:var(--dim)}
+
+.ach{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px dashed #4b3a8055}
+.ach .a-ico{font-size:18px;filter:grayscale(1);opacity:.5}
+.ach.done .a-ico{filter:none;opacity:1}
+.ach b{font-size:12px;font-weight:600;display:block}
+.ach.done b{color:var(--gold)}
+.a-bar{display:block;height:5px;border-radius:99px;background:#1c1240;overflow:hidden;margin-top:4px}
+.a-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--gold));border-radius:99px;transition:width .4s}
+.a-rew{font-style:normal;font-size:11px;color:var(--teal);white-space:nowrap}
+.ach.done .a-rew{color:var(--gold)}
+
+#toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:8px;
+  align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.toast{background:#2c1e57f5;border:1px solid var(--gold);padding:10px 16px;border-radius:12px;font-weight:600;font-size:13px;
+  box-shadow:0 8px 24px #0008;animation:tin .3s ease;text-align:center;max-width:92vw}
+@keyframes tin{from{transform:translateY(-14px);opacity:0}}
+#devBadge{position:fixed;right:8px;bottom:8px;z-index:60;font:700 10px system-ui;color:#0f0a20;background:var(--teal);
+  padding:3px 8px;border-radius:99px;display:none}
+
+@media (max-width:900px){
+  #layout{grid-template-columns:1fr;grid-template-rows:minmax(0,55fr) minmax(0,45fr);gap:8px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  #leftSlot{display:none}
+  #stage{order:1}#right{order:2}
+  #ring{width:min(44vh,72vw);height:min(44vh,72vw)}
+  #catBtn{width:min(32vh,56vw,300px);height:min(32vh,56vw,300px)}
+  #tSub{display:none}
+  #adBtn{padding:8px 14px}
+}
+@media (min-width:901px){.tab[data-tab="stats"]{display:none}}
+@media (max-width:900px) and (orientation:landscape){
+  #layout{grid-template-columns:minmax(0,1fr) minmax(260px,40%);grid-template-rows:1fr}
+  #leftSlot{display:none}
+  #catBtn{width:min(52vh,34vw,300px);height:min(52vh,34vw,300px)}
+  #ring{width:min(64vh,42vw);height:min(64vh,42vw)}
+  #hud{padding:6px 12px}
+  #balance{font-size:clamp(18px,3.2vh,26px)}
+  #adBtn{padding:6px 12px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+<div class="nebula n1"></div><div class="nebula n2"></div><div id="planet"></div>
+
+<div id="app">
+  <header id="hud">
+    <div id="brand"><b id="tName"></b><small id="tSub"></small></div>
+    <div id="balanceBox">
+      <div id="balance"><span id="stars">0</span> <i>⭐</i></div>
+      <div id="rateLine">
+        <span id="cpsTxt"></span>
+        <span id="boostChip" class="chip" hidden></span>
+      </div>
+    </div>
+    <div id="hudBtns">
+      <button id="langBadge" class="iconBtn" title="Language">RU</button>
+      <button id="soundBtn" class="iconBtn" title="Sound">🔊</button>
+    </div>
+  </header>
+
+  <main id="layout">
+    <aside id="leftSlot" class="panel"></aside>
+
+    <section id="stage">
+      <div id="clickZone">
+        <div id="ring"></div>
+        <button id="catBtn" aria-label="Космо-кот">
+          <svg viewBox="0 0 220 220" aria-hidden="true">
+            <defs><radialGradient id="fur" cx="50%" cy="42%" r="72%">
+              <stop offset="0%" stop-color="#ffb46b"/><stop offset="60%" stop-color="#f79143"/><stop offset="100%" stop-color="#e2702a"/>
+            </radialGradient></defs>
+            <circle cx="110" cy="116" r="96" fill="#9fd7ff" opacity=".1"/>
+            <circle cx="110" cy="116" r="96" fill="none" stroke="#bfe7ff" stroke-opacity=".55" stroke-width="3"/>
+            <path d="M40 78 A96 96 0 0 1 108 21" stroke="#fff" stroke-opacity=".65" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <path d="M56 66 L44 18 L92 44 Z" fill="#e2702a"/><path d="M60 58 L52 30 L84 47 Z" fill="#ff9fb0"/>
+            <path d="M164 66 L176 18 L128 44 Z" fill="#e2702a"/><path d="M160 58 L168 30 L136 47 Z" fill="#ff9fb0"/>
+            <circle cx="110" cy="112" r="72" fill="url(#fur)"/>
+            <g stroke="#c95c1e" stroke-width="7" fill="none" stroke-linecap="round">
+              <path d="M92 46 q6 14 2 22"/><path d="M112 42 q2 16 -2 24"/><path d="M130 48 q-4 14 0 22"/>
+            </g>
+            <ellipse cx="110" cy="140" rx="34" ry="24" fill="#ffe9cf"/>
+            <g class="eyes">
+              <ellipse cx="84" cy="104" rx="11" ry="13" fill="#fff"/><ellipse cx="136" cy="104" rx="11" ry="13" fill="#fff"/>
+              <circle cx="86" cy="106" r="6.5" fill="#2b9c8f"/><circle cx="138" cy="106" r="6.5" fill="#2b9c8f"/>
+              <circle cx="88" cy="103" r="2" fill="#fff"/><circle cx="140" cy="103" r="2" fill="#fff"/>
+            </g>
+            <path d="M104 128 h12 l-6 8 z" fill="#ff6f91"/>
+            <path d="M110 136 q0 8 -10 10 M110 136 q0 8 10 10" stroke="#b4551c" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <circle cx="66" cy="126" r="8" fill="#ff8b6a" opacity=".55"/><circle cx="154" cy="126" r="8" fill="#ff8b6a" opacity=".55"/>
+            <g stroke="#fff" stroke-opacity=".85" stroke-width="2.5" stroke-linecap="round">
+              <path d="M58 132 L26 126"/><path d="M58 140 L28 142"/><path d="M162 132 L194 126"/><path d="M162 140 L192 142"/>
+            </g>
+            <path d="M165 173 l5 10 10 5 -10 5 -5 10 -5 -10 -10 -5 10 -5 z" fill="#ffc857"/>
+          </svg>
+        </button>
+        <div id="fx"></div>
+      </div>
+      <button id="adBtn"><span class="play">▶</span><span data-t="ad_btn"></span></button>
+      <div id="cpcLine"><span id="cpcTxt"></span></div>
+    </section>
+
+    <aside class="panel" id="right">
+      <nav id="tabs">
+        <button class="tab on" data-tab="up" data-t="tab_up"></button>
+        <button class="tab" data-tab="bonus" data-t="tab_bonus"></button>
+        <button class="tab" data-tab="stats" data-t="tab_stats"></button>
+      </nav>
+      <div id="panes">
+        <div class="pane on" id="pane-up"><div id="upList"></div></div>
+        <div class="pane" id="pane-bonus">
+          <div class="bonusCard">
+            <div class="b-ico">📺</div>
+            <b data-t="ad_title"></b>
+            <p data-t="ad_desc"></p>
+            <button id="adWatch"><span class="play">▶</span><span data-t="ad_btn"></span></button>
+          </div>
+        </div>
+        <div class="pane" id="pane-stats"><div id="statsSlot"></div></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<div id="devBadge">DEV</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   КОСМО-КОТ: ЗВЁЗДНЫЙ КЛИКЕР — версия 11, сборка БЕЗ магазина и доната
+   Удалены: вкладка «Магазин», все IAP-вызовы SDK, турбо-режим и ошейник,
+   достижение «Первая покупка». Монетизация — только реклама (SDK adv).
+   ===================================================================== */
+
+const BOOST_AD_MS = 2*60*1000;
+const OFFLINE_CAP = 1*3600*1000;
+const OFFLINE_RATE = 0.3;
+const COST_GROWTH = 1.22;
+const SAVE_KEY = 'cosmocat_v3';
+const LB_ID = 'starsTotal';
+
+const UPG = [
+  {id:'paw',    type:'click', add:1,   base:125,     icon:'🐾'},
+  {id:'scratch',type:'click', add:3,   base:1250,    icon:'🧶'},
+  {id:'laser',  type:'click', add:15,  base:17500,   icon:'🔦'},
+  {id:'kitten', type:'auto',  add:1,   base:300,     icon:'🐱'},
+  {id:'drone',  type:'auto',  add:4,   base:3000,    icon:'🛸'},
+  {id:'station',type:'auto',  add:18,  base:30000,   icon:'🛰️'},
+  {id:'fleet',  type:'auto',  add:80,  base:225000,  icon:'🚀'},
+  {id:'galaxy', type:'auto',  add:400, base:2000000, icon:'🌌'},
+];
+const ACH = [
+  {id:'click1',get:s=>s.clicks,   goal:10,      reward:25},
+  {id:'click2',get:s=>s.clicks,   goal:250,     reward:100},
+  {id:'click3',get:s=>s.clicks,   goal:2500,    reward:750},
+  {id:'click4',get:s=>s.clicks,   goal:10000,   reward:4000},
+  {id:'star1', get:s=>s.totalStars,goal:500,     reward:150},
+  {id:'star2', get:s=>s.totalStars,goal:10000,   reward:1000},
+  {id:'star3', get:s=>s.totalStars,goal:250000,  reward:10000},
+  {id:'star4', get:s=>s.totalStars,goal:1000000, reward:40000},
+  {id:'cps1',  get:()=>cpsRaw(),  goal:10,      reward:200},
+  {id:'cps2',  get:()=>cpsRaw(),  goal:100,     reward:2000},
+];
+
+let S = {stars:0,totalStars:0,clicks:0,boostUntil:0,ach:[],sound:true,up:{}};
+
+const L = {
+ru:{name:'Космо-Кот',sub:'звёздный кликер',tab_up:'Улучшения',tab_bonus:'Бонусы',tab_stats:'Статистика',
+per_click:'+{n} за клик',cps:'{n} ⭐/сек',
+ad_btn:'Реклама: доход ×2 на 2 минуты',ad_title:'Бонус за рекламу',ad_desc:'Посмотрите короткое видео — и весь доход кота удвоится на 2 минуты.',
+ad_granted:'Отлично! Доход ×2 уже работает 🚀',ad_err:'Реклама сейчас недоступна. Загляните чуть позже.',
+ach_h:'Достижения',ach_done:'🏆 Достижение «{n}»! +{r} ⭐',
+offline:'😺 Пока вас не было, кот намурлыкал {n} ⭐!',
+st_total:'Всего звёзд',st_clicks:'Кликов',st_cpc:'Сила клика',st_cps:'Доход в сек',st_mult:'Множитель',st_ach:'Достижений',
+up_paw_n:'Мягкая лапка',up_paw_d:'+1 ⭐ за клик',up_scratch_n:'Когтеточка',up_scratch_d:'+3 ⭐ за клик',
+up_laser_n:'Лазерная указка',up_laser_d:'+15 ⭐ за клик',up_kitten_n:'Котёнок-помощник',up_kitten_d:'+1 ⭐ в секунду',
+up_drone_n:'Мурчащий дрон',up_drone_d:'+4 ⭐ в секунду',up_station_n:'Орбитальная станция',up_station_d:'+18 ⭐ в секунду',
+up_fleet_n:'Звёздный флот',up_fleet_d:'+80 ⭐ в секунду',up_galaxy_n:'Галактика мурчания',up_galaxy_d:'+400 ⭐ в секунду',
+ach_click1_n:'Первый тап',ach_click2_n:'Разминка лап',ach_click3_n:'Мастер тапа',ach_click4_n:'Легенда галактики',
+ach_star1_n:'Первые 500',ach_star2_n:'Звёздный счёт',ach_star3_n:'Космо-магнат',ach_star4_n:'Миллион звёзд',
+ach_cps1_n:'Автоматизация',ach_cps2_n:'Мурчащий конвейер',
+lvl:'ур. {n}'},
+
+en:{name:'Cosmo Cat',sub:'star clicker',tab_up:'Upgrades',tab_bonus:'Bonuses',tab_stats:'Stats',
+per_click:'+{n} per tap',cps:'{n} ⭐/sec',
+ad_btn:'Ad: ×2 income for 2 minutes',ad_title:'Ad bonus',ad_desc:'Watch a short video and double all income for 2 minutes.',
+ad_granted:'Great! ×2 income is live 🚀',ad_err:'No ads available right now. Try again later.',
+ach_h:'Achievements',ach_done:'🏆 Achievement “{n}”! +{r} ⭐',
+offline:'😺 While you were away, the cat purred up {n} ⭐!',
+st_total:'Total stars',st_clicks:'Taps',st_cpc:'Tap power',st_cps:'Per second',st_mult:'Multiplier',st_ach:'Achievements',
+up_paw_n:'Soft Paw',up_paw_d:'+1 ⭐ per tap',up_scratch_n:'Scratching Post',up_scratch_d:'+3 ⭐ per tap',
+up_laser_n:'Laser Pointer',up_laser_d:'+15 ⭐ per tap',up_kitten_n:'Helper Kitten',up_kitten_d:'+1 ⭐ per second',
+up_drone_n:'Purring Drone',up_drone_d:'+4 ⭐ per second',up_station_n:'Orbital Station',up_station_d:'+18 ⭐ per second',
+up_fleet_n:'Star Fleet',up_fleet_d:'+80 ⭐ per second',up_galaxy_n:'Purr Galaxy',up_galaxy_d:'+400 ⭐ per second',
+ach_click1_n:'First Tap',ach_click2_n:'Paw Warm-up',ach_click3_n:'Tap Master',ach_click4_n:'Galaxy Legend',
+ach_star1_n:'First 500',ach_star2_n:'Star Score',ach_star3_n:'Space Magnate',ach_star4_n:'Million Stars',
+ach_cps1_n:'Automation',ach_cps2_n:'Purr Conveyor',
+lvl:'Lv. {n}'}
+};
+let LANG = localStorage.getItem('cosmocat_lang') || 'ru';
+function t(key,vars){
+  let s=(L[LANG]&&L[LANG][key])??L.ru[key]??key;
+  if(vars) for(const k in vars) s=s.replace('{'+k+'}',vars[k]);
+  return s;
+}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.title=t('name')+' — '+t('sub');
+  document.getElementById('tName').textContent=t('name');
+  document.getElementById('tSub').textContent=t('sub');
+  document.getElementById('langBadge').textContent=LANG.toUpperCase();
+  document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));
+  updateUI();
+}
+
+const rawClick=()=>1+UPG.filter(u=>u.type==='click').reduce((a,u)=>a+u.add*(S.up[u.id]||0),0);
+const cpsRaw  =()=>UPG.filter(u=>u.type==='auto').reduce((a,u)=>a+u.add*(S.up[u.id]||0),0);
+const multNow =()=>(Date.now()<S.boostUntil?2:1);
+const clickPower=()=>rawClick()*multNow();
+const cpsNow  =()=>cpsRaw()*multNow();
+const cost=u=>Math.ceil(u.base*Math.pow(COST_GROWTH,S.up[u.id]||0));
+function fmt(n){n=Math.floor(n);if(n<1000)return String(n);
+  const U=['K','M','B','T'];let i=-1,v=n;
+  while(v>=1000&&i<U.length-1){v/=1000;i++;}
+  const s=v>=100?v.toFixed(0):v>=10?v.toFixed(1):v.toFixed(2);
+  return s.replace(/\.0+$|(\.\d*[1-9])0+$/,'$1')+U[i];}
+function mmss(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+
+const $=id=>document.getElementById(id);
+const starsEl=$('stars'),cpsTxt=$('cpsTxt'),cpcTxt=$('cpcTxt'),boostChip=$('boostChip'),fx=$('fx'),catBtn=$('catBtn');
+
+function buildShop(){
+  $('upList').innerHTML=UPG.map(u=>
+    `<button class="item" data-up="${u.id}">
+      <span class="i-ico">${u.icon}</span>
+      <span><span class="i-name"><span data-t="up_${u.id}_n"></span><b class="i-lvl" id="lvl-${u.id}"></b></span>
+      <small class="i-desc" data-t="up_${u.id}_d"></small></span>
+      <span class="i-price" id="price-${u.id}"></span>
+    </button>`).join('');
+}
+function buildLeft(){
+  const html=`
+    <h3 class="pTitle" data-t="tab_stats"></h3>
+    <ul class="statList">
+      <li><span data-t="st_total"></span><b id="stTotal">0</b></li>
+      <li><span data-t="st_clicks"></span><b id="stClicks">0</b></li>
+      <li><span data-t="st_cpc"></span><b id="stCpc">1</b></li>
+      <li><span data-t="st_cps"></span><b id="stCps">0</b></li>
+      <li><span data-t="st_mult"></span><b id="stMult">×1</b></li>
+      <li><span data-t="st_ach"></span><b id="stAch">0/${ACH.length}</b></li>
+    </ul>
+    <h3 class="pTitle" data-t="ach_h"></h3>
+    <div id="achList">${ACH.map(a=>
+      `<div class="ach" id="ach-${a.id}"><span class="a-ico">🏅</span>
+       <span><b data-t="ach_${a.id}_n"></b><span class="a-bar"><i id="ab-${a.id}"></i></span></span>
+       <em class="a-rew">+${fmt(a.reward)}⭐</em></div>`).join('')}</div>`;
+  const w=document.createElement('div');w.id='leftWrap';w.innerHTML=html;
+  document.body.appendChild(w);
+}
+const mqMobile=matchMedia('(max-width:900px)');
+function placeStats(){
+  const w=document.getElementById('leftWrap');
+  (mqMobile.matches?$('statsSlot'):$('leftSlot')).appendChild(w);
+}
+
+function updateUI(){
+  starsEl.textContent=fmt(S.stars);
+  cpsTxt.textContent=t('cps',{n:fmt(cpsNow())});
+  cpcTxt.textContent=t('per_click',{n:fmt(clickPower())});
+  const m=multNow();
+  const now=Date.now();
+  boostChip.hidden=now>=S.boostUntil;if(!boostChip.hidden)boostChip.textContent='×2 · '+mmss(S.boostUntil-now);
+  for(const u of UPG){
+    const btn=document.querySelector(`[data-up="${u.id}"]`);if(!btn)continue;
+    $('price-'+u.id).textContent=fmt(cost(u))+' ⭐';
+    $('lvl-'+u.id).textContent=t('lvl',{n:S.up[u.id]||0});
+    btn.classList.toggle('dis',S.stars<cost(u));
+  }
+  if($('stTotal')){
+    $('stTotal').textContent=fmt(S.totalStars);$('stClicks').textContent=fmt(S.clicks);
+    $('stCpc').textContent=fmt(clickPower());$('stCps').textContent=fmt(cpsNow());
+    $('stMult').textContent='×'+m;$('stAch').textContent=S.ach.length+'/'+ACH.length;
+    for(const a of ACH){const row=$('ach-'+a.id);if(!row)continue;
+      $('ab-'+a.id).style.width=Math.min(100,a.get(S)/a.goal*100)+'%';
+      row.classList.toggle('done',S.ach.includes(a.id));}
+  }
+}
+
+let AC=null;
+function beep(f=600,d=.06,type='sine',g=.05){if(!S.sound)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();
+    const o=AC.createOscillator(),v=AC.createGain();o.type=type;o.frequency.value=f;
+    v.gain.setValueAtTime(g,AC.currentTime);v.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);
+    o.connect(v).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
+const blip=()=>beep(520+Math.random()*160,.05,'triangle',.04);
+const coin=()=>{beep(660,.07);setTimeout(()=>beep(880,.09),70);};
+const tada=()=>[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.12),i*90));
+
+function toast(msg,dur=3200){const d=document.createElement('div');d.className='toast';d.textContent=msg;
+  $('toasts').appendChild(d);setTimeout(()=>{d.style.transition='.4s';d.style.opacity=0;setTimeout(()=>d.remove(),400);},dur);}
+function floater(cx,cy,txt){const r=fx.getBoundingClientRect();const el=document.createElement('b');
+  el.className='fl';el.textContent=txt;el.style.left=(cx-r.left)+'px';el.style.top=(cy-r.top)+'px';
+  fx.appendChild(el);el.addEventListener('animationend',()=>el.remove());
+  if(fx.children.length>40)fx.firstChild.remove();}
+function burst(cx,cy){const r=fx.getBoundingClientRect();
+  for(let i=0;i<3;i++){const el=document.createElement('i');el.className='pt';el.textContent='✦';
+    const a=Math.random()*Math.PI*2,d=40+Math.random()*50;
+    el.style.left=(cx-r.left)+'px';el.style.top=(cy-r.top)+'px';
+    el.style.setProperty('--dx',Math.cos(a)*d+'px');el.style.setProperty('--dy',(Math.sin(a)*d-30)+'px');
+    el.style.color=['#ffc857','#3ddad7','#ff6f91'][i];fx.appendChild(el);setTimeout(()=>el.remove(),750);}}
+function boing(){catBtn.classList.remove('boing');void catBtn.offsetWidth;catBtn.classList.add('boing');}
+function shakeEl(el){el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');}
+
+function earn(n){S.stars+=n;S.totalStars+=n;saveSoon();}
+function checkAch(){
+  let got=false;
+  for(const a of ACH){
+    if(S.ach.includes(a.id))continue;
+    if(a.get(S)>=a.goal){
+      S.ach.push(a.id);earn(a.reward);got=true;
+      toast(t('ach_done',{n:t('ach_'+a.id+'_n'),r:fmt(a.reward)}),4200);tada();
+    }
+  }
+  if(got)tryInterstitial('achievement');
+}
+
+catBtn.addEventListener('pointerdown',e=>{
+  if(e.button)return;
+  const p=clickPower();earn(p);S.clicks++;
+  blip();boing();floater(e.clientX,e.clientY,'+'+fmt(p));burst(e.clientX,e.clientY);
+  checkAch();updateUI();
+});
+catBtn.addEventListener('contextmenu',e=>e.preventDefault());
+catBtn.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();
+  const r=catBtn.getBoundingClientRect();
+  const p=clickPower();earn(p);S.clicks++;blip();boing();
+  floater(r.left+r.width/2,r.top+r.height/2,'+'+fmt(p));checkAch();updateUI();}});
+
+$('upList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-up]');if(!b)return;
+  const u=UPG.find(x=>x.id===b.dataset.up);const c=cost(u);
+  if(S.stars<c){shakeEl(b);return;}
+  S.stars-=c;S.up[u.id]=(S.up[u.id]||0)+1;
+  coin();updateUI();checkAch();saveSoon();
+  const totalLv=Object.values(S.up).reduce((a,v)=>a+v,0);
+  if(totalLv%10===0)tryInterstitial('upgrade-milestone');
+});
+
+$('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab');if(!b)return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='pane-'+b.dataset.tab));
+});
+
+/* ---------------- Yandex Games SDK (без покупок) ---------------- */
+let ysdk=null,player=null,lb=null,usingMock=false;
+const safe=f=>Promise.resolve().then(f).catch(()=>{});
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+
+function makeMock(){usingMock=true;
+  ysdk={_mock:true,
+    environment:{i18n:{lang:(navigator.language||'ru').slice(0,2).toLowerCase()}},
+    adv:{showFullscreenAdv(o){const c=o.callbacks||{};c.onOpen&&c.onOpen();setTimeout(()=>c.onClose&&c.onClose(true),700);},
+         showRewardedVideo(o){const c=o.callbacks||{};c.onOpen&&c.onOpen();
+           setTimeout(()=>{c.onRewarded&&c.onRewarded();c.onClose&&c.onClose();},700);}},
+  getPlayer:()=>Promise.resolve({getData:()=>Promise.resolve({}),setData:()=>Promise.resolve()}),
+  leaderboards:null,
+  features:{LoadingAPI:{ready(){}},GameplayAPI:{start(){},stop(){}}}};}
+
+async function initSDK(){
+  if(window.YaGames){
+    try{ysdk=await withTimeout(YaGames.init(),5000);}catch(e){ysdk=null;}
+  }
+  if(!ysdk)makeMock();
+  const raw=((ysdk.environment&&ysdk.environment.i18n&&ysdk.environment.i18n.lang)||'ru').toLowerCase();
+  const pref=localStorage.getItem('cosmocat_lang');
+  LANG=pref||(raw==='ru'?'ru':'en');
+}
+function gpStart(){if(document.hidden)return;try{ysdk&&ysdk.features&&ysdk.features.GameplayAPI.start();}catch(e){}}
+function gpStop(){try{ysdk&&ysdk.features&&ysdk.features.GameplayAPI.stop();}catch(e){}}
+
+/* -------- реклама: только естественные паузы, не чаще 1/3 мин -------- */
+const INTER_MIN=180000;
+const bootTime=Date.now();
+let adOpen=false,lastAdAt=0,adShownThisSession=false;
+const isPaused=()=>document.hidden||adOpen;
+
+function tryInterstitial(reason){
+  if(!ysdk||adOpen)return;
+  const now=Date.now();
+  if(now-bootTime<90000)return;
+  if(now-lastAdAt<INTER_MIN)return;
+  lastAdAt=now;adShownThisSession=true;
+  ysdk.adv.showFullscreenAdv({callbacks:{
+    onOpen(){adOpen=true;gpStop();},
+    onClose(){adOpen=false;gpStart();},
+    onError(){adOpen=false;gpStart();}
+  }});
+}
+function watchAd(){
+  if(!ysdk||adOpen)return;
+  ysdk.adv.showRewardedVideo({callbacks:{
+    onOpen(){adOpen=true;gpStop();},
+    onRewarded(){S.boostUntil=Math.max(Date.now(),S.boostUntil)+BOOST_AD_MS;toast(t('ad_granted'));updateUI();},
+    onClose(){adOpen=false;gpStart();},
+    onError(){adOpen=false;gpStart();toast(t('ad_err'));}
+  }});
+}
+$('adBtn').addEventListener('click',watchAd);
+$('adWatch').addEventListener('click',watchAd);
+
+/* сохранения */
+let saveT=null,cloudBusy=false,lastCloud=0,lastLB=0;
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(saveNow,1500);}
+function saveNow(){clearTimeout(saveT);S.lastSeen=Date.now();
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}
+  if(player&&!cloudBusy&&Date.now()-lastCloud>5000){cloudBusy=true;lastCloud=Date.now();
+    player.setData(S).catch(()=>{}).finally(()=>{cloudBusy=false;});
+    if(lb&&Date.now()-lastLB>15000){lastLB=Date.now();
+      safe(()=>lb.setLeaderboardScore(LB_ID,Math.floor(S.totalStars)));}}}
+
+async function loadSave(){
+  let data=null;
+  if(player){try{data=await player.getData();}catch(e){}}
+  if(!data||typeof data.stars!=='number'){try{const ls=localStorage.getItem(SAVE_KEY);if(ls)data=JSON.parse(ls);}catch(e){}}
+  if(data&&typeof data.stars==='number'){
+    Object.assign(S,data);S.up=data.up||{};S.ach=Array.isArray(data.ach)?data.ach:[];}
+}
+function applyOffline(){
+  const now=Date.now(),dt=Math.min(now-(S.lastSeen||now),OFFLINE_CAP);
+  if(dt>60000&&cpsRaw()>0){
+    const gain=Math.floor(cpsRaw()*dt/1000*OFFLINE_RATE);
+    if(gain>0){earn(gain);toast(t('offline',{n:fmt(gain)}),6000);}}
+}
+
+setInterval(()=>{
+  if(isPaused())return;
+  const c=cpsNow();if(c>0)earn(c/10);
+  updateUI();
+},100);
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){S.lastSeen=Date.now();gpStop();saveNow();}
+  else{
+    if(!adOpen)gpStart();
+    if(adShownThisSession)tryInterstitial('resume');
+  }
+});
+window.addEventListener('pagehide',()=>{S.lastSeen=Date.now();
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}});
+setInterval(()=>{if(!document.hidden)saveNow();},20000);
+
+function initSky(){
+  const cv=$('sky'),ctx=cv.getContext('2d');let W,H,stars=[],meteor=null,nextMeteor=5,dpr=1;
+  function rs(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    const n=Math.min(180,Math.round(W*H/9000));stars=[];
+    for(let i=0;i<n;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:.4+Math.random()*1.4,
+      ph:Math.random()*6.28,sp:.5+Math.random()*1.5});}
+  rs();addEventListener('resize',rs);
+  let last=performance.now();
+  (function loop(now){
+    const dt=Math.min(50,now-last)/1000;last=now;
+    ctx.clearRect(0,0,W,H);
+    for(const s of stars){s.x-=dt*2*s.sp;if(s.x<0)s.x+=W;
+      const a=.35+.65*Math.abs(Math.sin(now/1000*s.sp+s.ph));
+      ctx.globalAlpha=a;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,6.28);ctx.fill();}
+    ctx.globalAlpha=1;
+    nextMeteor-=dt;
+    if(nextMeteor<=0&&!meteor){meteor={x:Math.random()*W*.8+W*.1,y:Math.random()*H*.3,vx:-(260+Math.random()*220),vy:140+Math.random()*120,life:1.1};nextMeteor=5+Math.random()*7;}
+    if(meteor){meteor.x+=meteor.vx*dt;meteor.y+=meteor.vy*dt;meteor.life-=dt;
+      ctx.strokeStyle='rgba(255,255,255,'+Math.max(0,meteor.life)*.8+')';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(meteor.x,meteor.y);ctx.lineTo(meteor.x-meteor.vx*.12,meteor.y-meteor.vy*.12);ctx.stroke();
+      if(meteor.life<=0)meteor=null;}
+    requestAnimationFrame(loop);
+  })(last);
+}
+
+$('soundBtn').addEventListener('click',()=>{S.sound=!S.sound;
+  $('soundBtn').textContent=S.sound?'🔊':'🔇';saveSoon();if(S.sound)coin();});
+$('langBadge').addEventListener('click',()=>{
+  LANG=LANG==='ru'?'en':'ru';
+  localStorage.setItem('cosmocat_lang',LANG);applyLang();});
+
+let readySent=false;
+function markReady(){
+  if(readySent)return;readySent=true;
+  try{if(ysdk&&ysdk.features&&ysdk.features.LoadingAPI)ysdk.features.LoadingAPI.ready();}catch(e){}
+}
+
+buildShop();buildLeft();placeStats();
+mqMobile.addEventListener?mqMobile.addEventListener('change',placeStats):mqMobile.addListener(placeStats);
+applyLang();updateUI();initSky();
+
+(async function boot(){
+  await initSDK();
+  applyLang();
+  try{player=await ysdk.getPlayer();}catch(e){player=null;}
+  await loadSave();
+  applyOffline();
+  lb=(ysdk&&ysdk.leaderboards)||null;
+  if(!lb)console.warn('[lb] лидерборды недоступны (проверьте starsTotal в консоли)');
+  $('soundBtn').textContent=S.sound?'🔊':'🔇';
+  updateUI();
+  markReady();
+  gpStart();
+  if(usingMock){$('devBadge').style.display='block';console.info('[dev] SDK mock активен — режим локального теста');}
+})();
+</script>
+</body>
+</html>
